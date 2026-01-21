@@ -1,0 +1,4 @@
+# --- large datasets (do not track) ---
+/insulator/Yolo-v8n-laf/datasets/
+/nest/data/
+/rail/Yolo-v8n-laf/datasets/
