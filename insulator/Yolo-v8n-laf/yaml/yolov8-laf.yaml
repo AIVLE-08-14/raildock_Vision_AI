@@ -1,0 +1,55 @@
+# YOLO-LAF (Figure 1) based on YOLOv8n
+# Paper: A Lightweight Transmission Line Foreign Object Detection Algorithm Incorporating Adaptive Weight Pooling
+
+nc: 4   # RailFOD23 classes (이미 확인됨)
+depth_multiple: 0.33
+width_multiple: 0.25
+
+backbone:
+  # [from, number, module, args]
+  [
+    [-1, 1, Conv, [64, 3, 2]],        # 0
+    [-1, 1, Conv, [128, 3, 2]],       # 1
+    [-1, 1, LWM,  []],             # 2 ★ LWM (stage 1)
+
+    [-1, 3, FasterBlockEMA, [128, 4, 2.0, True, 8, "silu"]],   # 3  (C2f -> FasterBlockEMA)
+    [-1, 1, LWM,  []],             # 4 ★ LWM (stage 2)
+
+    [-1, 1, Conv, [256, 3, 2]],       # 5
+    [-1, 6, FasterBlockEMA, [256, 4, 2.0, True, 8, "silu"]],   # 6  (C2f -> FasterBlockEMA)
+    [-1, 1, LWM,  []],             # 7 ★ LWM (stage 3)
+
+    [-1, 1, Conv, [512, 3, 2]],       # 8
+    [-1, 6, FasterBlockEMA, [512, 4, 2.0, True, 8, "silu"]],   # 9  (C2f -> FasterBlockEMA)
+
+    [-1, 1, SPPF, [512, 5]]           # 10
+  ]
+
+neck:
+  [
+    # ---------- Top-down path ----------
+    [-1, 1, Conv, [256, 1, 1]],       # 11
+    [-1, 1, nn.Upsample, [None, 2, "nearest"]],
+    [[-1, 6], 1, Concat, [1]],
+    [-1, 3, C2fSCConv, [256]],         # 14 ★ C2f-SCConv
+
+    [-1, 1, Conv, [128, 1, 1]],
+    [-1, 1, nn.Upsample, [None, 2, "nearest"]],
+    [[-1, 3], 1, Concat, [1]],
+    [-1, 3, C2fSCConv, [128]],         # 18 ★ C2f-SCConv (80×80)
+
+    # ---------- Bottom-up path ----------
+    [-1, 1, Conv, [128, 3, 2]],
+    [[-1, 14], 1, Concat, [1]],
+    [-1, 3, C2fSCConv, [256]],         # 21 ★ C2f-SCConv
+    [-1, 1, LWM, []],               # 22 ★ LWM (40×40 scale)
+
+    [-1, 1, Conv, [256, 3, 2]],
+    [[-1, 10], 1, Concat, [1]],
+    [-1, 3, C2fSCConv, [512]]          # 25 ★ C2f-SCConv (20×20)
+  ]
+
+head:
+  [
+    [[-3, -2, -1], 1, Detect, [nc]]
+  ]

@@ -1,0 +1,15 @@
+﻿path: D:\Project\Korail\model\baseline\insulator\Yolo-v8n-laf\datasets\insulator_hs_ns
+train: images/train
+val: images/val
+nc: 10
+names:
+  0: 일반철도_전차선
+  1: 일반철도_프로텍터
+  2: 일반철도_행거
+  3: 일반철도_클램프 류
+  4: 일반철도_애자 류
+  5: 고속철도_전차선
+  6: 고속철도_프로텍터
+  7: 고속철도_행거
+  8: 고속철도_클램프 류
+  9: 고속철도_애자 류

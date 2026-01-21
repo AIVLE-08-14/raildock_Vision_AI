@@ -1,0 +1,20 @@
+path:  D:\Project\Korail\rail\Yolo-v8n-laf\datasets\rail_hs_ns
+train: images/train
+val: images/val
+nc: 15
+names:
+  0: 일반철도_레일
+  1: 일반철도_이음매판
+  2: 일반철도_볼트너트
+  3: 일반철도_팬드롤 e-clip
+  4: 일반철도_절연블록
+  5: 일반철도_나사스파이크
+  6: 일반철도_침목
+  7: 고속철도_레일
+  8: 고속철도_용접부
+  9: 고속철도_팬드롤 e-clip
+  10: 고속철도_FAST clip
+  11: 고속철도_system300-1
+  12: 고속철도_나사스파이크
+  13: 고속철도_절연블록
+  14: 고속철도_침목
