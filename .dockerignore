@@ -1,0 +1,15 @@
+.git
+.gitignore
+.idea
+__pycache__
+**/__pycache__/
+**/*.pyc
+*.zip
+
+# 학습 산출물/캐시/데이터셋
+/insulator/Yolo-v8n-laf/datasets/
+/nest/data/
+/rail/Yolo-v8n-laf/datasets/
+/insulator/Yolo-v8n-laf/runs/
+/rail/Yolo-v8n-laf/runs/
+/nest/runs/

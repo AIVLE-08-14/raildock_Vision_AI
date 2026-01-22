@@ -117,33 +117,30 @@ def split_label_to_fields(label: str):
     return rail_type, cls_name, detail
 
 
-def _get_korean_font(font_size: int = 24):
-    # Windows 기본 한글 폰트 (대부분 존재)
-    candidates = [
-        r"C:\Windows\Fonts\malgun.ttf",    # 맑은 고딕
-        r"C:\Windows\Fonts\malgunsl.ttf",  # 맑은 고딕 Semilight
-        r"C:\Windows\Fonts\gulim.ttc",     # 굴림
-        r"C:\Windows\Fonts\batang.ttc",    # 바탕
-    ]
-    for p in candidates:
-        if os.path.exists(p):
-            return ImageFont.truetype(p, font_size)
-    # 폰트 못 찾으면 기본 폰트(한글은 깨질 수 있음)
-    return ImageFont.load_default()
-
-
-from PIL import Image, ImageDraw, ImageFont
-
 def _get_korean_font(font_size: int = 28):
+    # Linux(Docker) + Windows 둘 다 지원
     candidates = [
+        # --- Linux (Docker) ---
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+
+        # --- Windows ---
         r"C:\Windows\Fonts\malgun.ttf",
         r"C:\Windows\Fonts\malgunsl.ttf",
         r"C:\Windows\Fonts\gulim.ttc",
         r"C:\Windows\Fonts\batang.ttc",
     ]
+
     for p in candidates:
         if os.path.exists(p):
-            return ImageFont.truetype(p, font_size)
+            try:
+                return ImageFont.truetype(p, font_size)
+            except Exception:
+                pass
+
+    # 폰트 못 찾으면 기본 폰트(한글은 깨질 수 있음)
     return ImageFont.load_default()
 
 def draw_boxes_with_remap(frame, boxes, names_obj):
@@ -151,6 +148,7 @@ def draw_boxes_with_remap(frame, boxes, names_obj):
     - 클래스별 색상 다르게
     - bbox 두께 크게
     - 라벨 폰트 크게 + 배경(반투명 느낌) + padding
+    - 라벨이 프레임 밖으로 절대 나가지 않게 + 서로 최대한 안 겹치게
     """
     if boxes is None or len(boxes) == 0:
         return frame
@@ -160,20 +158,25 @@ def draw_boxes_with_remap(frame, boxes, names_obj):
     overlay = Image.new("RGBA", pil.size, (0, 0, 0, 0))  # 투명 오버레이
     draw = ImageDraw.Draw(overlay)
 
-    font = _get_korean_font(font_size=30)   # 글자 크기 키움
-    bbox_thick = 4                          # 박스 두께 키움
+    font = _get_korean_font(font_size=30)
+    bbox_thick = 4
 
     xyxy = boxes.xyxy.cpu().numpy()
     confs = boxes.conf.cpu().numpy()
     clss = boxes.cls.cpu().numpy().astype(int)
 
     W, H = pil.size
-    placed = []  # 이미 배치된 라벨 박스들 (x0,y0,x1,y1)
+    placed = []  # 지금까지 배치된 라벨 박스들 (x0,y0,x1,y1)
+
+    def _overlap(a, b):
+        ax0, ay0, ax1, ay1 = a
+        bx0, by0, bx1, by1 = b
+        return not (ax1 < bx0 or bx1 < ax0 or ay1 < by0 or by1 < ay0)
 
     for i in range(len(clss)):
         cls_id = int(clss[i])
         raw = _get_cls_name(names_obj, cls_id)
-        name = _remap_name(raw)  # 예: 고속철도_FAST clip_훼손
+        name = _remap_name(raw)
         conf = float(confs[i])
 
         x1, y1, x2, y2 = map(int, xyxy[i].tolist())
@@ -185,36 +188,58 @@ def draw_boxes_with_remap(frame, boxes, names_obj):
         # 클래스별 색
         r, g, b = color_for_cls(cls_id)
 
-        # bbox (RGBA) - 여러번 그려서 두께 효과
+        # bbox
         for t in range(bbox_thick):
             draw.rectangle([x1 - t, y1 - t, x2 + t, y2 + t], outline=(r, g, b, 255), width=1)
 
-        # 라벨 텍스트 (원하면 아래를 띄어쓰기 형태로 바꿔도 됨)
+        # 라벨 텍스트
         text = f"{name} {conf:.2f}"
 
-        # 텍스트 크기 계산
+        # 텍스트 크기
         l, t, rr, bb = draw.textbbox((0, 0), text, font=font)
         tw, th = (rr - l), (bb - t)
 
         pad_x, pad_y = 10, 6
+        label_w = tw + pad_x * 2
+        label_h = th + pad_y * 2
+
+        # -------------------------
+        # 1) 초기 후보 위치 결정: 위 -> 아래 -> bbox 안쪽
+        # -------------------------
         tx = x1
-        ty = y1 - (th + pad_y * 2) - 2
-        if ty < 0:
-            ty = y1 + 2
 
-        # ✅ 겹치면 아래로 밀기 (간단하지만 효과 좋음)
-        def _overlap(a, b):
-            ax0, ay0, ax1, ay1 = a
-            bx0, by0, bx1, by1 = b
-            return not (ax1 < bx0 or bx1 < ax0 or ay1 < by0 or by1 < ay0)
+        ty_above = y1 - label_h - 2
+        ty_below = y2 + 2
 
+        if ty_above >= 0:
+            ty = ty_above
+        elif ty_below + label_h <= H:
+            ty = ty_below
+        else:
+            # 위도 아래도 불가면 bbox 안쪽
+            ty = max(0, min(y1 + 2, H - label_h - 1))
+
+        # -------------------------
+        # 2) 시작 위치 1차 클램프 (프레임 밖 금지)
+        # -------------------------
+        tx = max(0, min(tx, W - label_w - 1))
+        ty = max(0, min(ty, H - label_h - 1))
+
+        # -------------------------
+        # 3) 겹치면 아래로 밀면서 찾기 (항상 프레임 내부 유지)
+        # -------------------------
         max_tries = 30
-        step = th + pad_y * 2 + 2
+        step = label_h + 2
 
+        best = None
         for _ in range(max_tries):
+            # 매 시도마다 프레임 안으로 강제
+            tx = max(0, min(tx, W - label_w - 1))
+            ty = max(0, min(ty, H - label_h - 1))
+
             x0, y0 = tx, ty
-            x1b = min(tx + tw + pad_x * 2, W - 1)
-            y1b = min(ty + th + pad_y * 2, H - 1)
+            x1b = min(tx + label_w, W - 1)
+            y1b = min(ty + label_h, H - 1)
             cand = (x0, y0, x1b, y1b)
 
             hit = False
@@ -224,114 +249,49 @@ def draw_boxes_with_remap(frame, boxes, names_obj):
                     break
 
             if not hit:
+                best = cand
                 placed.append(cand)
                 break
 
             # 겹치면 아래로 한 칸 내리기
             ty += step
-            if ty >= H - (th + pad_y * 2) - 1:
-                # 화면 아래 넘어가면 다시 위쪽으로 시도(박스 위)
-                ty = max(0, y1 - (th + pad_y * 2) - 2)
-                # 그래도 계속 겹치면 그냥 현재 위치에 둠
-                # (max_tries 끝나면 cand는 마지막 계산값)
 
-        # 라벨 배경 박스 (반투명)
-        x0, y0, x1b, y1b = placed[-1] if placed else (tx, ty, min(tx + tw + pad_x * 2, W - 1), min(ty + th + pad_y * 2, H - 1))
+            # 바닥에 닿으면: bbox 안쪽으로 강제(옛날처럼 위로 리셋하지 않음)
+            if ty > H - label_h - 1:
+                ty = max(0, min(y1 + 2, H - label_h - 1))
 
+        # best를 못 찾으면 현재 위치로(그래도 프레임 밖은 아님)
+        if best is None:
+            x0, y0 = tx, ty
+            x1b = min(tx + label_w, W - 1)
+            y1b = min(ty + label_h, H - 1)
+        else:
+            x0, y0, x1b, y1b = best
 
-        # 배경은 클래스색을 어둡게/반투명으로
+        # 최종 안전 클램프
+        x0 = max(0, min(x0, W - 1))
+        y0 = max(0, min(y0, H - 1))
+        x1b = max(x0 + 1, min(x1b, W - 1))
+        y1b = max(y0 + 1, min(y1b, H - 1))
+
+        # 배경 (반투명)
         draw.rectangle([x0, y0, x1b, y1b], fill=(r, g, b, 110))
 
-        # 글자(흰색) + 외곽선(검정)으로 가독성
+        # 텍스트
         text_x = x0 + pad_x
         text_y = y0 + pad_y
-        # stroke_width는 PIL버전에 따라 지원됨. 안되면 아래 4방향 그림자로 대체 가능
         try:
             draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255, 255),
                       stroke_width=2, stroke_fill=(0, 0, 0, 255))
         except TypeError:
-            # fallback: 간단한 그림자
-            for dx, dy in [(-2,0),(2,0),(0,-2),(0,2)]:
-                draw.text((text_x+dx, text_y+dy), text, font=font, fill=(0,0,0,255))
-            draw.text((text_x, text_y), text, font=font, fill=(255,255,255,255))
+            for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                draw.text((text_x + dx, text_y + dy), text, font=font, fill=(0, 0, 0, 255))
+            draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255, 255))
 
-    # 오버레이 합성 후 BGR로 반환
     out = Image.alpha_composite(pil, overlay).convert("RGB")
     out_bgr = cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
     return out_bgr
 
-
-# def draw_boxes_with_remap(frame, boxes, names_obj):
-#     """
-#     OpenCV frame(BGR)에 bbox는 cv2로 그리고,
-#     텍스트(한글)는 PIL로 그린 뒤 다시 BGR로 변환해서 반환
-#     """
-#     img = frame.copy()
-#     if boxes is None or len(boxes) == 0:
-#         return img
-#
-#     xyxy = boxes.xyxy.cpu().numpy()
-#     confs = boxes.conf.cpu().numpy()
-#     clss = boxes.cls.cpu().numpy().astype(int)
-#
-#     # 1) bbox는 OpenCV로 먼저 그림
-#     for i in range(len(clss)):
-#         x1, y1, x2, y2 = map(int, xyxy[i].tolist())
-#         cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 255), 2)
-#
-#     # 2) 텍스트는 PIL로 (한글 지원)
-#     pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-#     draw = ImageDraw.Draw(pil)
-#     font = _get_korean_font(font_size=24)
-#
-#     for i in range(len(clss)):
-#         cls_id = int(clss[i])
-#         raw = _get_cls_name(names_obj, cls_id)
-#         name = _remap_name(raw)  # 예: "고속철도_FAST clip_훼손"
-#         conf = float(confs[i])
-#
-#         x1, y1, x2, y2 = map(int, xyxy[i].tolist())
-#         text = f"{name} {conf:.2f}"
-#
-#         # 텍스트 배경 박스(가독성)
-#         tx, ty = x1, max(0, y1 - 28)
-#         # 정확한 bbox 계산 (left, top, right, bottom)
-#         l, t, r, b = draw.textbbox((0, 0), text, font=font)
-#         tw, th = (r - l), (b - t)
-#
-#         pad_x, pad_y = 4, 3
-#         x0, y0 = tx, ty
-#         x1, y1 = tx + tw + pad_x * 2, ty + th + pad_y * 2
-#
-#         # 배경(검정) + 글자(노랑)
-#         draw.rectangle([x0, y0, x1, y1], fill=(0, 0, 0))
-#         draw.text((tx + pad_x, ty + pad_y), text, font=font, fill=(255, 255, 0))
-#
-#     out = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
-#     return out
-
-# def draw_boxes_with_remap(frame, boxes, names_obj):
-#     img = frame.copy()
-#     if boxes is None or len(boxes) == 0:
-#         return img
-#
-#     xyxy = boxes.xyxy.cpu().numpy()
-#     confs = boxes.conf.cpu().numpy()
-#     clss = boxes.cls.cpu().numpy().astype(int)
-#
-#     for i in range(len(clss)):
-#         cls_id = int(clss[i])
-#         raw = _get_cls_name(names_obj, cls_id)
-#         name = _remap_name(raw)
-#
-#         x1, y1, x2, y2 = map(int, xyxy[i].tolist())
-#         cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 255), 2)
-#         cv2.putText(
-#             img, f"{name} {float(confs[i]):.2f}",
-#             (x1, max(0, y1 - 6)),
-#             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2
-#         )
-#     return img
 
 
 def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
@@ -414,8 +374,6 @@ def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
             boxes_to_draw = boxes_to_draw[det_indices]  # Ultralytics Boxes는 인덱싱 지원
 
         annotated = draw_boxes_with_remap(frame, boxes_to_draw, r.names)
-        # mp4_stem = os.path.splitext(os.path.basename(mp4_path))[0]  # 예: "고속철도_220916_영암1"
-        # prefix = f"{mp4_stem}_frame_{frame_index:06d}"
         mp4_stem = cfg.source_stem or os.path.splitext(os.path.basename(mp4_path))[0]
         prefix = f"{mp4_stem}_frame_{frame_index:06d}"
 
