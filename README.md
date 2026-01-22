@@ -90,11 +90,11 @@ baseline/
 ### 4.1 Docker 기반 추론 서버 실행 (권장)
 #### Docker 이미지 빌드
 ```text
-docker build -t raildock-vision:latest .
+docker build -t raildock-vision:0.4
 ```
 #### Docker 컨테이너 실행 (GPU 사용)
 ```text
-docker run --rm --gpus all -p 8000:8000 raildock-vision:latest
+docker run --rm --gpus all -p 8000:8000 raildock-vision:0.4
 ```
 - FastAPI 서버는 아래 주소에서 실행됩니다.
   - http://localhost:8000
