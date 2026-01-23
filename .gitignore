@@ -13,5 +13,4 @@ __pycache__
 **/__pycache__/
 **/*.pyc
 *.zip
-
-
+/ultralytics_custom/*.tar.gz
