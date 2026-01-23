@@ -1,0 +1,21 @@
+[project]
+name = "raildock-vision-ai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "ultralytics",
+    "fastapi==0.115.0",
+    "uvicorn[standard]==0.30.6",
+    "python-multipart==0.0.9",
+    "pydantic==2.8.2"
+]
+
+[tool.uv.workspace]
+members = [
+    "ultralytics_custom/ultralytics-8.4.6",
+]
+
+[tool.uv.sources]
+ultralytics = { workspace = true }
