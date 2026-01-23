@@ -10,11 +10,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
+# uv 설치 (astral 공식 설치 스크립트, 시스템 전역 경로에 설치)
+ENV UV_INSTALL_DIR=/usr/local/bin
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
 WORKDIR /workdir
 
+COPY pyproject.toml uv.lock README.md /workdir/
+
 # 1) 서버 의존성 먼저 복사/설치 (캐시 최적화)
-COPY requirements.api.txt /workdir/requirements.api.txt
-RUN pip install --no-cache-dir -r /workdir/requirements.api.txt
+RUN uv sync --no-dev --frozen
 
 # 2) 프로젝트 전체 복사
 COPY . /workdir
@@ -28,4 +33,4 @@ RUN pip uninstall -y ultralytics || true \
 EXPOSE 8000
 
 # 실행
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
