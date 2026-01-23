@@ -5,3 +5,10 @@
 /insulator/Yolo-v8n-laf/runs/
 /rail/Yolo-v8n-laf/runs/
 /nest/runs/
+.git
+.gitignore
+.idea
+__pycache__
+**/__pycache__/
+**/*.pyc
+*.zip
