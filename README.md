@@ -61,20 +61,36 @@ YOLOv8 프레임워크 위에 커스텀 모듈 형태로 구현되었습니다.
 ## 3. 디렉토리 구조
 
 ```text
-baseline/
-├── app.py                     # FastAPI 추론 서버 엔트리포인트
-├── infer_insulator.py          # 애자(Insulator) 추론 로직
-├── infer_nest.py               # 둥지(Nest) 추론 로직
-├── infer_rail.py               # 선로/전차선 추론 로직
-├── ultralytics_custom/         # 커스텀 YOLOv8 모듈
-│   └── ultralytics-8.4.6/
-├── insulator/                  # 애자 모델 관련 리소스
-├── nest/                       # 둥지 모델 관련 리소스
-├── rail/                       # 선로 모델 관련 리소스
-├── Dockerfile                  # 추론 서버 Docker 이미지 정의
-├── requirements.api.txt        # API / Inference용 Python 패키지
-├── .dockerignore
-├── .gitignore
+raildock_Vision_AI/
+├── main.py                          # FastAPI 서버 엔트리포인트
+├── app/                             # 애플리케이션 패키지
+│   ├── __init__.py
+│   ├── app.py                       # FastAPI 앱 인스턴스
+│   ├── Controller.py                # API 엔드포인트 정의
+│   ├── schemas/
+│   │   └── InferenceSchema.py       # 요청/응답 스키마
+│   └── service/
+│       ├── InferenceService.py      # 추론 비즈니스 로직
+│       ├── infer_insulator.py       # 애자(Insulator) 추론 로직
+│       ├── infer_nest.py            # 둥지(Nest) 추론 로직
+│       └── infer_rail.py            # 선로/전차선 추론 로직
+├── model/                           # 모델 가중치 및 설정
+│   ├── insulator/
+│   │   └── Yolo-v8n-laf/
+│   │       ├── best.pt              # 애자 모델 가중치
+│   │       └── insulator_hs_ns.yaml # 애자 클래스 정의
+│   ├── nest/
+│   │   ├── best.pt                  # 둥지 모델 가중치
+│   │   └── nest_hs_ns.yaml          # 둥지 클래스 정의
+│   └── rail/
+│       └── Yolo-v8n-laf/
+│           ├── best.pt              # 선로 모델 가중치
+│           └── rail_hs_ns.yaml      # 선로 클래스 정의
+├── ultralytics_custom/              # 커스텀 YOLOv8 모듈
+├── Dockerfile                       # 추론 서버 Docker 이미지 정의
+├── pyproject.toml                   # 프로젝트 의존성 (uv)
+├── requirements.api.txt             # API / Inference용 Python 패키지
+├── uv.lock
 └── README.md
 ```
 
@@ -85,39 +101,59 @@ baseline/
 본 프로젝트는 다음 두 가지 방식으로 사용할 수 있습니다.
 
 - Docker 기반 FastAPI 추론 서버 실행 (권장)
-- 단일 MP4 추론 스크립트 직접 실행
+- uv를 이용한 로컬 실행
 
 ### 4.1 Docker 기반 추론 서버 실행 (권장)
 #### Docker 이미지 빌드
-```text
+```bash
 docker build -t raildock-vision:0.4
 ```
 #### Docker 컨테이너 실행 (GPU 사용)
-```text
+```bash
 docker run --rm --gpus all -p 8000:8000 raildock-vision:0.4
 ```
+
+### 4.2 Local Build
+
+> [!warning]
+> [uv](https://github.com/astral-sh/uv)설치가 필요합니다.
+
+```bash
+uv sync
+uv run main.py
+```
+
 - FastAPI 서버는 아래 주소에서 실행됩니다.
   - http://localhost:8000
 
-### 4.2 FastAPI 추론 API 사용 예시
 #### 엔드포인트
 ```text
-POST /predict_multi3
+POST /infer
 ```
-#### 요청 예시 (Windows PowerShell)
-```text
-curl.exe -X POST "http://127.0.0.1:8000/predict_multi3?stride=5&conf=0.25" `
-  -F "rail_mp4=@rail.mp4" `
-  -F "insulator_mp4=@insulator.mp4" `
-  -F "nest_mp4=@nest.mp4" `
-  -o result.zip
+#### 요청 예시 (curl)
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/infer' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "rail_mp4": "<File URL>",
+  "insulator_mp4": "<File URL>",
+  "nest_mp4": "<File URL>",
+  "conf": 0.25,
+  "iou": 0.7,
+  "stride": 5
+}'
 ```
+
+> [!NOTE]
+> 자세한 내용은 `/docs`의 Swagger 문서 참고
 
 #### 입력
 - MP4 영상 파일 (선로 / 애자 / 둥지)
 
 #### 출력
-- Bounding Box가 시각화된 이미지(JPG)
-- 프레임 단위 JSON 메타데이터
-- 위 결과를 포함한 zip 파일
+- zip 파일
+  - Bounding Box가 시각화된 이미지(JPG)
+  - 프레임 단위 JSON 메타데이터
 
