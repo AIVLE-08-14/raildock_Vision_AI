@@ -14,3 +14,13 @@ __pycache__
 /insulator/Yolo-v8n-laf/runs/
 /rail/Yolo-v8n-laf/runs/
 /nest/runs/
+
+.venv/
+.idea/
+.hf_cache/
+**/*.pt
+runs/
+outputs/
+__pycache__/
+*.pyc
+.git/

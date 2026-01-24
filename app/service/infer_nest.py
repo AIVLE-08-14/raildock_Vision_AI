@@ -301,9 +301,12 @@ def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
         raise FileNotFoundError(f"weights not found: {cfg.weights_path}")
 
     os.makedirs(cfg.out_dir, exist_ok=True)
-    frames_dir = os.path.join(cfg.out_dir, "frames")
+    detect_dir = os.path.join(cfg.out_dir, "detect")
+    origin_dir = os.path.join(cfg.out_dir, "origin")
     json_dir = os.path.join(cfg.out_dir, "json")
-    os.makedirs(frames_dir, exist_ok=True)
+
+    os.makedirs(detect_dir, exist_ok=True)
+    os.makedirs(origin_dir, exist_ok=True)
     os.makedirs(json_dir, exist_ok=True)
 
     # 모델 로드
@@ -378,8 +381,15 @@ def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
         prefix = f"{mp4_stem}_frame_{frame_index:06d}"
 
         img_name = f"{prefix}.jpg"
-        img_path = os.path.join(frames_dir, img_name)
-        cv2.imwrite(img_path, annotated)
+        # img_path = os.path.join(frames_dir, img_name)
+        # cv2.imwrite(img_path, annotated)
+        # 원본 저장 (bbox 그리기 전)
+        origin_path = os.path.join(origin_dir, img_name)
+        cv2.imwrite(origin_path, frame)  # frame이 원본 프레임(보통 BGR)
+
+        # bbox 그린 결과 저장
+        detect_path = os.path.join(detect_dir, img_name)
+        cv2.imwrite(detect_path, annotated)
 
         # JSON 생성
         dets: List[Dict[str, Any]] = []
@@ -437,7 +447,8 @@ def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
         "saved_frames": saved,
         "elapsed_sec": round(time.time() - t0, 3),
         "output_dir": os.path.abspath(cfg.out_dir),
-        "frames_dir": os.path.abspath(frames_dir),
+        "origin_dir": os.path.abspath(origin_dir),
+        "detect_dir": os.path.abspath(detect_dir),
         "json_dir": os.path.abspath(json_dir),
         "items_count": len(items),
     }

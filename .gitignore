@@ -14,3 +14,32 @@ __pycache__
 **/*.pyc
 *.zip
 /ultralytics_custom/*.tar.gz
+
+# ----- Local env / IDE -----
+.venv/
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+
+# ----- Hugging Face cache -----
+.hf_cache/
+.huggingface/
+
+# ----- OS junk -----
+.DS_Store
+Thumbs.db
+
+# ----- Weights / large artifacts -----
+**/*.pt
+**/*.pth
+**/*.onnx
+**/*.engine
+**/*.tflite
+**/*.torchscript
+
+# ----- Training / output artifacts (선택) -----
+runs/
+outputs/
+result.zip
+results.zip
