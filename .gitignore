@@ -1,36 +1,35 @@
-# --- large datasets (do not track) ---
-/insulator/Yolo-v8n-laf/datasets/
-/nest/data/
-/rail/Yolo-v8n-laf/datasets/
-/insulator/Yolo-v8n-laf/runs/
-/rail/Yolo-v8n-laf/runs/
-/nest/runs/
-.git
-.gitignore
-.idea
-__pycache__
-**/.idea/
-**/__pycache__/
-**/*.pyc
-*.zip
-/ultralytics_custom/*.tar.gz
-
-# ----- Local env / IDE -----
+# =========================
+# Python / IDE / Local env
+# =========================
 .venv/
 .idea/
 .vscode/
+*.iml
+
 __pycache__/
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# ----- Hugging Face cache -----
-.hf_cache/
-.huggingface/
+.pytest_cache/
+.mypy_cache/
 
-# ----- OS junk -----
+# =========================
+# OS junk
+# =========================
 .DS_Store
 Thumbs.db
 
-# ----- Weights / large artifacts -----
+# =========================
+# Hugging Face cache
+# =========================
+.hf_cache/
+.huggingface/
+
+# =========================
+# Weights / model artifacts (ALL subdirs)
+# =========================
 **/*.pt
 **/*.pth
 **/*.onnx
@@ -38,8 +37,23 @@ Thumbs.db
 **/*.tflite
 **/*.torchscript
 
-# ----- Training / output artifacts (선택) -----
+# =========================
+# Training outputs / large artifacts
+# =========================
 runs/
 outputs/
 result.zip
 results.zip
+
+# =========================
+# Project-specific large folders
+# (현재 repo 구조 기준: model 아래에서만 무시)
+# =========================
+model/**/datasets/
+model/**/runs/
+model/nest/data/
+
+# =========================
+# Other
+# =========================
+ultralytics_custom/*.tar.gz
