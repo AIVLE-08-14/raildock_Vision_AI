@@ -10,10 +10,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
-# uv 설치 (astral 공식 설치 스크립트, 시스템 전역 경로에 설치)
-ENV UV_INSTALL_DIR=/usr/local/bin
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
+# uv 설치 (astral 공식 설치 스크립트)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+ && ( \
+      if [ -x /usr/local/bin/uv ]; then echo "uv in /usr/local/bin"; \
+      elif [ -x /root/.local/bin/uv ]; then ln -sf /root/.local/bin/uv /usr/local/bin/uv; \
+      elif [ -x /root/.cargo/bin/uv ]; then ln -sf /root/.cargo/bin/uv /usr/local/bin/uv; \
+      else echo "uv binary not found after install" && exit 1; \
+      fi \
+    ) \
+ && uv --version
 WORKDIR /workdir
 
 COPY pyproject.toml uv.lock README.md /workdir/
