@@ -3,6 +3,8 @@ FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
 
 # 시스템 패키지 (OpenCV/영상 처리에 자주 필요)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
     ffmpeg \
     libgl1 \
     libglib2.0-0 \
@@ -23,6 +25,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
 WORKDIR /workdir
 
 COPY pyproject.toml uv.lock README.md /workdir/
+COPY ultralytics_custom/ultralytics-8.4.6 /workdir/ultralytics_custom/ultralytics-8.4.6
+
 
 # 1) 서버 의존성 먼저 복사/설치 (캐시 최적화)
 RUN uv sync --no-dev --frozen
