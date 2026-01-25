@@ -44,6 +44,9 @@ runs/
 outputs/
 result.zip
 results.zip
+data/
+datasets/
+runs/finetune
 
 # =========================
 # Project-specific large folders
@@ -57,3 +60,8 @@ model/nest/data/
 # Other
 # =========================
 ultralytics_custom/*.tar.gz
+
+.env
+data/
+datasets/
+runs_finetune/
