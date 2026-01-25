@@ -1,6 +1,6 @@
-path: D:\Project\Korail\model\baseline\nest\data\New_an\splits_80_10_10_seed42\yolo
+path: D:/Project/Korail/model/feedback/raildock_Vision_AI/datasets/nest
 train: images/train
-val: images/val
+val: images/train
 test: images/test
 nc: 4
 names:

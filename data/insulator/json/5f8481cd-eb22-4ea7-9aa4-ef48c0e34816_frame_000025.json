@@ -1,0 +1,35 @@
+{
+  "source_mp4": "insulator.mp4",
+  "frame_index": 25,
+  "timestamp_ms": 1041.6666666666667,
+  "image_file": "5f8481cd-eb22-4ea7-9aa4-ef48c0e34816_frame_000025.jpg",
+  "detections": [
+    {
+      "cls_id": 9,
+      "rail_type": "고속철도",
+      "cls_name": "애자 류",
+      "detail": "균열 파손",
+      "confidence": 0.8482723832130432,
+      "bbox_xyxy": [
+        586.525146484375,
+        362.0314636230469,
+        655.94580078125,
+        387.3851013183594
+      ]
+    },
+    {
+      "cls_id": 9,
+      "rail_type": "고속철도",
+      "cls_name": "애자 류",
+      "detail": "균열 파손",
+      "confidence": 0.7263815999031067,
+      "bbox_xyxy": [
+        543.076171875,
+        686.0003662109375,
+        695.924072265625,
+        720.0
+      ]
+    }
+  ],
+  "is_anomaly": true
+}
