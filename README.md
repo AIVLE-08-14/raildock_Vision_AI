@@ -9,6 +9,50 @@ YOLOv8 계열을 기반으로 하며,
 의 구조를 참고하여 **경량화 + 다중 스케일 탐지 성능**을 강화한 커스텀 모델을 사용합니다.
 
 ---
+  
+## 0. 사용법
+### 0.1 추론서버 사용법
+
+- uv sync
+- uv run main.py
+#### 요청 예시 (curl)
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/infer' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "rail_mp4": "<File URL>",
+  "insulator_mp4": "<File URL>",
+  "nest_mp4": "<File URL>",
+  "conf": 0.25,
+  "iou": 0.7,
+  "stride": 5
+}'
+```
+
+### 0.2 파인튜닝 서버 사용법
+
+- uv sync
+#### 실행
+```bash
+uv run python -m tools.finetune.finetune `
+  --tasks rail,insulator,nest `
+  --epochs 2 `
+  --batch 2 `
+  --imgsz 640 `
+  --device 0 `
+  --hf-repo-rail "stcheesecake-gh/rail-detector" `
+  --hf-repo-insulator "stcheesecake-gh/insulator-detector" `
+  --hf-repo-nest "stcheesecake-gh/nest-detector" `
+  --hf-base-rail "weights/best.pt" `
+  --hf-base-insulator "weights/best.pt" `
+  --hf-base-nest "weights/best.pt"
+```
+- .env 설정 필요 (Notion에 있음)
+- data/ 내에 훈련 파일이 있어야 돌아감
+
+---
 
 ## 1. 프로젝트 개요
 

@@ -31,6 +31,12 @@ def patch_data_yaml(yaml_path: Path, dataset_root: Path) -> None:
     data["val"] = "images/train"
     yaml_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
+def _ensure_data_dirs(data_root: Path, tasks):
+    data_root.mkdir(parents=True, exist_ok=True)
+    for t in tasks:
+        (data_root / t / "json").mkdir(parents=True, exist_ok=True)
+        (data_root / t / "origin").mkdir(parents=True, exist_ok=True)
+
 
 def main():
     p = argparse.ArgumentParser()
@@ -57,6 +63,11 @@ def main():
 
     p.add_argument("--hf-revision", default=None)         # main 등 공통
     args = p.parse_args()
+
+    root = Path(__file__).resolve().parents[2]   # tools/finetune/finetune.py 기준 프로젝트 루트
+    data_root = root / "data"
+    tasks = [x.strip() for x in args.tasks.split(",") if x.strip()]  # args.tasks가 "rail,insulator,nest" 라는 전제
+    _ensure_data_dirs(data_root, tasks)
 
     data_root = ROOT / args.data_root
     ds_root = ROOT / args.datasets_root
