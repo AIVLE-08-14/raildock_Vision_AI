@@ -12,12 +12,32 @@ dependencies = [
     "pydantic==2.8.2",
     "httpx>=0.28.1",
     "huggingface-hub>=0.24.6",
+    "pillow>=10.0.0",
+    "pyyaml>=6.0.1",
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "python-dotenv",
 ]
+
+[project.scripts]
+finetune = "tools.finetune.finetune:main"
 
 [tool.uv.workspace]
 members = [
     "ultralytics_custom/ultralytics-8.4.6",
 ]
 
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
 [tool.uv.sources]
 ultralytics = { workspace = true }
+torch = { index = "pytorch-cu121" }
+torchvision = { index = "pytorch-cu121" }
+torchaudio = { index = "pytorch-cu121" }
+
+

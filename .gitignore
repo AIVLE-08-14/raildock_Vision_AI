@@ -5,7 +5,7 @@
 .idea/
 .vscode/
 *.iml
-
+.env
 __pycache__/
 **/__pycache__/
 *.pyc
@@ -44,6 +44,9 @@ runs/
 outputs/
 result.zip
 results.zip
+data/
+datasets/
+runs/finetune
 
 # =========================
 # Project-specific large folders
