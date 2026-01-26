@@ -15,3 +15,6 @@ names:
   12: 고속철도_나사스파이크
   13: 고속철도_절연블록
   14: 고속철도_침목
+path: D:/Project/Korail/model/merge/raildock_Vision_AI/datasets/rail
+train: images/train
+val: images/train
