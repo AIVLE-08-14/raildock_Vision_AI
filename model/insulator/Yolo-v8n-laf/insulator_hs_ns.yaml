@@ -1,6 +1,6 @@
-﻿path: D:\Project\Korail\model\baseline\insulator\Yolo-v8n-laf\datasets\insulator_hs_ns
+path: D:/Project/Korail/model/feedback/raildock_Vision_AI/datasets/insulator
 train: images/train
-val: images/val
+val: images/train
 nc: 10
 names:
   0: 일반철도_전차선
