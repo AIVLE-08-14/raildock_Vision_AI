@@ -8,6 +8,8 @@ from ultralytics import YOLO
 from tools.finetune.preprocess import build_yolo_dataset
 from tools.finetune.hf_utils import download_weight, upload_file
 
+from dotenv import load_dotenv
+load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]  # repo root
 
