@@ -1,7 +1,3 @@
-path: D:/Project/Korail/model/feedback/raildock_Vision_AI/datasets/nest
-train: images/train
-val: images/train
-test: images/test
 nc: 4
 names:
 - niaocao

@@ -1,6 +1,3 @@
-path: D:/Project/Korail/model/feedback/raildock_Vision_AI/datasets/rail
-train: images/train
-val: images/train
 nc: 15
 names:
   0: 일반철도_레일
