@@ -4,7 +4,7 @@ from .infer_rail import InferConfig as RailCfg, infer_mp4 as infer_rail
 from .infer_insulator import InferConfig as InsCfg, infer_mp4 as infer_ins
 from .infer_nest import InferConfig as NestCfg, infer_mp4 as infer_nest
 from pathlib import Path
-
+from huggingface_hub import hf_hub_download
 import httpx
 import asyncio
 import tempfile
@@ -14,8 +14,8 @@ import os
 
 @dataclass
 class ModelPaths:
-    weights_path: str
-    yaml_path: str
+    weights_path: Path
+    yaml_path: Path
 
 @dataclass
 class DownloadedFile:
@@ -25,20 +25,51 @@ class DownloadedFile:
 class InferenceService:
     def __init__(self):
         self.modelRootPath = Path(__file__).resolve().parent.parent.parent / "model"
+
+        # ✅ HF repo id (기본값은 네가 말한 public repo)
+        rail_repo = os.getenv("HF_RAIL_REPO", "stcheesecake-gh/rail-detector")
+        ins_repo  = os.getenv("HF_INS_REPO",  "stcheesecake-gh/insulator-detector")
+        nest_repo = os.getenv("HF_NEST_REPO", "stcheesecake-gh/nest-detector")
+
+        # ✅ HF에서 best.pt 다운로드 → 로컬 캐시 경로(Path)
+        rail_best = self._hf_best_pt(rail_repo)
+        ins_best  = self._hf_best_pt(ins_repo)
+        nest_best = self._hf_best_pt(nest_repo)
+
+        # ✅ weights_path만 HF 경로로 바꿈 (yaml은 기존 로컬 yaml 유지)
         self.railModelPaths = ModelPaths(
-            weights_path=self.modelRootPath / "rail" / "Yolo-v8n-laf" / "best.pt",
+            weights_path=rail_best,
             yaml_path=self.modelRootPath / "rail" / "Yolo-v8n-laf" / "rail_hs_ns.yaml",
         )
         self.insulatorModelPaths = ModelPaths(
-            weights_path=self.modelRootPath / "insulator" / "Yolo-v8n-laf" / "best.pt",
+            weights_path=ins_best,
             yaml_path=self.modelRootPath / "insulator" / "Yolo-v8n-laf" / "insulator_hs_ns.yaml",
         )
         self.nestModelPaths = ModelPaths(
-            weights_path=self.modelRootPath / "nest" / "best.pt",
+            weights_path=nest_best,
             yaml_path=self.modelRootPath / "nest" / "nest_hs_ns.yaml",
         )
 
         self._validate_model_paths()
+
+    def _hf_best_pt(self, repo_id: str) -> Path:
+        """
+        Hugging Face model repo에서 weights/best.pt를 내려받아
+        로컬 캐시 경로(Path)를 반환한다.
+        """
+        cache_dir = os.getenv("HF_CACHE_DIR", str(Path(__file__).resolve().parent.parent.parent / ".hf_cache"))
+        revision = os.getenv("HF_REVISION")  # optional: "main" / tag / commit hash
+
+        local_path = hf_hub_download(
+            repo_id=repo_id,
+            filename="weights/best.pt",
+            repo_type="model",
+            cache_dir=cache_dir,
+            revision=revision if revision else None,
+        )
+        return Path(local_path)
+
+
 
     def _validate_model_paths(self):
         for modelPaths in [self.railModelPaths, self.insulatorModelPaths, self.nestModelPaths]:
@@ -127,8 +158,8 @@ class InferenceService:
             # 3. 각 모델 추론 실행 (동기 - YOLO는 CPU/GPU bound)
             # Rail 추론
             cfg_rail = RailCfg(
-                weights_path=self.railModelPaths.weights_path,
-                data_yaml_path=self.railModelPaths.yaml_path,
+                weights_path=str(self.railModelPaths.weights_path),
+                data_yaml_path=str(self.railModelPaths.yaml_path),
                 out_dir=str(out_rail),
                 conf=conf,
                 iou=iou,
@@ -141,8 +172,8 @@ class InferenceService:
             
             # Insulator 추론
             cfg_ins = InsCfg(
-                weights_path=self.insulatorModelPaths.weights_path,
-                data_yaml_path=self.insulatorModelPaths.yaml_path,
+                weights_path=str(self.insulatorModelPaths.weights_path),
+                data_yaml_path=str(self.insulatorModelPaths.yaml_path),
                 out_dir=str(out_ins),
                 conf=conf,
                 iou=iou,
@@ -155,8 +186,8 @@ class InferenceService:
             
             # Nest 추론
             cfg_nest = NestCfg(
-                weights_path=self.nestModelPaths.weights_path,
-                data_yaml_path=self.nestModelPaths.yaml_path,
+                weights_path=str(self.nestModelPaths.weights_path),
+                data_yaml_path=str(self.nestModelPaths.yaml_path),
                 out_dir=str(out_nest),
                 conf=conf,
                 iou=iou,
