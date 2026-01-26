@@ -1,7 +1,4 @@
-path: D:/Project/Korail/model/feedback/raildock_Vision_AI/datasets/insulator
-train: images/train
-val: images/train
-nc: 10
+﻿nc: 10
 names:
   0: 일반철도_전차선
   1: 일반철도_프로텍터
