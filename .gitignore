@@ -57,3 +57,18 @@ model/nest/data/
 # Other
 # =========================
 ultralytics_custom/*.tar.gz
+
+
+# finetune artifacts
+runs_finetune/
+runs/
+
+# yolo datasets generated
+datasets/
+
+# weights
+*.pt
+*.onnx
+
+# local data (원하면 task별로 더 세밀하게)
+data/**/origin/

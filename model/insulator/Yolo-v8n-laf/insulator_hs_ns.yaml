@@ -1,7 +1,4 @@
-﻿path: D:\Project\Korail\model\baseline\insulator\Yolo-v8n-laf\datasets\insulator_hs_ns
-train: images/train
-val: images/val
-nc: 10
+﻿nc: 10
 names:
   0: 일반철도_전차선
   1: 일반철도_프로텍터

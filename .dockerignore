@@ -53,3 +53,10 @@ model/nest/data/
 # Other
 # =========================
 ultralytics_custom/*.tar.gz
+
+
+runs_finetune/
+runs/
+datasets/
+*.pt
+data/**/origin/

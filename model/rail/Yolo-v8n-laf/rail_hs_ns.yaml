@@ -1,7 +1,3 @@
-path:  D:\Project\Korail\rail\Yolo-v8n-laf\datasets\rail_hs_ns
-train: images/train
-val: images/val
-nc: 15
 names:
   0: 일반철도_레일
   1: 일반철도_이음매판

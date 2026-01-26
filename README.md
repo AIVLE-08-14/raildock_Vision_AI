@@ -9,6 +9,25 @@ YOLOv8 계열을 기반으로 하며,
 의 구조를 참고하여 **경량화 + 다중 스케일 탐지 성능**을 강화한 커스텀 모델을 사용합니다.
 
 ---
+## 0. 사용법
+- pip install uv
+- uv sync
+- uv run main.py
+- 
+curl http://127.0.0.1:8000/infer `
+  -Method POST `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body '{
+    "rail_mp4": "",
+    "insulator_mp4": "",
+    "nest_mp4": ""
+  }' `
+  -OutFile result.zip
+
+
+
+
+
 
 ## 1. 프로젝트 개요
 
