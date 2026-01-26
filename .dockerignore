@@ -1,16 +1,62 @@
-.git
-.gitignore
-.idea
-__pycache__
-**/.idea/
+# =========================
+# Git / IDE / Local env
+# =========================
+.git/
+.idea/
+.vscode/
+.venv/
+
+__pycache__/
 **/__pycache__/
-**/*.pyc
+*.pyc
+*.pyo
+*.pyd
+*.iml
+
+# =========================
+# Hugging Face cache
+# =========================
+.hf_cache/
+.huggingface/
+
+# =========================
+# OS junk
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Weights / model artifacts
+# =========================
+**/*.pt
+**/*.pth
+**/*.onnx
+**/*.engine
+**/*.tflite
+**/*.torchscript
+
+# =========================
+# Training outputs / large artifacts
+# =========================
+runs/
+outputs/
 *.zip
 
-# 학습 산출물/캐시/데이터셋
-/insulator/Yolo-v8n-laf/datasets/
-/nest/data/
-/rail/Yolo-v8n-laf/datasets/
-/insulator/Yolo-v8n-laf/runs/
-/rail/Yolo-v8n-laf/runs/
-/nest/runs/
+# =========================
+# Project-specific large folders
+# =========================
+model/**/datasets/
+model/**/runs/
+model/nest/data/
+
+# =========================
+# Other
+# =========================
+ultralytics_custom/*.tar.gz
+
+
+runs_finetune/
+runs/
+datasets/
+*.pt
+data/**/origin/

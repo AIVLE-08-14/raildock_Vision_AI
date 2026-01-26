@@ -1,0 +1,27 @@
+{
+  "seed": 42,
+  "split_ratios": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.1
+  },
+  "stratify_method": "iterative_multilabel_stratify",
+  "category_id_sorted": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "idx_to_name": {
+    "0": "niaocao",
+    "1": "suliaodai",
+    "2": "piaofuwu",
+    "3": "qiqiu"
+  },
+  "catid_to_idx": {
+    "1": 0,
+    "2": 1,
+    "3": 2,
+    "4": 3
+  }
+}

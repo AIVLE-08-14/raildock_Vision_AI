@@ -1,0 +1,9 @@
+nc: 4
+names:
+- niaocao
+- suliaodai
+- piaofuwu
+- qiqiu
+path: D:/Project/Korail/model/merge/raildock_Vision_AI/datasets/nest
+train: images/train
+val: images/train

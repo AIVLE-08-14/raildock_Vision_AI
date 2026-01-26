@@ -1,6 +1,3 @@
-﻿path: D:\Project\Korail\model\baseline\insulator\Yolo-v8n-laf\datasets\insulator_hs_ns
-train: images/train
-val: images/val
 nc: 10
 names:
   0: 일반철도_전차선
@@ -13,3 +10,6 @@ names:
   7: 고속철도_행거
   8: 고속철도_클램프 류
   9: 고속철도_애자 류
+path: D:/Project/Korail/model/merge/raildock_Vision_AI/datasets/insulator
+train: images/train
+val: images/train

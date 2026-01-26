@@ -34,13 +34,21 @@ def _norm_label(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
+
 # ✅ 너가 준 이상상세(status_detail_clean) 기준으로 "표시 이름" 변경
 #    (기존 raw label이 공백/언더바 섞여 있어도 매칭되게 norm_key로 관리)
 LABEL_REMAP = {
-  _norm_label("niaocao"): "공통_조류둥지_탐지",      # 예시
-  _norm_label("suliaodai"): "공통_비닐봉투_탐지",
-  _norm_label("piaofuwu"): "공통_부유물_탐지",
-  _norm_label("qiqiu"): "공통_풍선_탐지",
+    _norm_label("고속철도 애자 류"):     "고속철도_애자 류_균열 파손",
+    _norm_label("고속철도 전차선"):      "고속철도_전차선_마모 커버 탈락",
+    _norm_label("고속철도 클램프 류"):   "고속철도_클램프 류_탈락",
+    _norm_label("고속철도 프로텍터"):    "고속철도_프로텍터_파손",
+    _norm_label("고속철도 행거"):        "고속철도_행거_이탈",
+
+    _norm_label("일반철도 애자 류"):     "일반철도_애자 류_균열 파손",
+    _norm_label("일반철도 전차선"):      "일반철도_전차선_마모 등",
+    _norm_label("일반철도 클램프 류"):   "일반철도_클램프 류_탈락",
+    _norm_label("일반철도 프로텍터"):    "일반철도_프로텍터_파손",
+    _norm_label("일반철도 행거"):        "일반철도_행거_이탈",
 }
 
 
@@ -142,6 +150,7 @@ def _get_korean_font(font_size: int = 28):
 
     # 폰트 못 찾으면 기본 폰트(한글은 깨질 수 있음)
     return ImageFont.load_default()
+
 
 def draw_boxes_with_remap(frame, boxes, names_obj):
     """
@@ -294,6 +303,8 @@ def draw_boxes_with_remap(frame, boxes, names_obj):
 
 
 
+
+
 def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
     if not os.path.exists(mp4_path):
         raise FileNotFoundError(f"mp4 not found: {mp4_path}")
@@ -301,9 +312,11 @@ def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
         raise FileNotFoundError(f"weights not found: {cfg.weights_path}")
 
     os.makedirs(cfg.out_dir, exist_ok=True)
-    frames_dir = os.path.join(cfg.out_dir, "frames")
+    detect_dir = os.path.join(cfg.out_dir, "detect")
+    origin_dir = os.path.join(cfg.out_dir, "origin")
     json_dir = os.path.join(cfg.out_dir, "json")
-    os.makedirs(frames_dir, exist_ok=True)
+    os.makedirs(detect_dir, exist_ok=True)
+    os.makedirs(origin_dir, exist_ok=True)
     os.makedirs(json_dir, exist_ok=True)
 
     # 모델 로드
@@ -366,20 +379,22 @@ def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
             continue
 
         # annotated JPG 저장
-        # annotated = draw_boxes_with_remap(frame, r.boxes, r.names)
-        # annotated JPG 저장: keep_classes가 있으면 해당 박스만 그리기
-        boxes_to_draw = r.boxes
-        if cfg.keep_classes is not None and boxes_to_draw is not None and len(boxes_to_draw) > 0:
-            # det_indices는 이미 위에서 keep_classes로 필터링된 index 목록
-            boxes_to_draw = boxes_to_draw[det_indices]  # Ultralytics Boxes는 인덱싱 지원
-
-        annotated = draw_boxes_with_remap(frame, boxes_to_draw, r.names)
+        annotated = draw_boxes_with_remap(frame, r.boxes, r.names)
+        # mp4_stem = os.path.splitext(os.path.basename(mp4_path))[0]  # 예: "고속철도_220916_영암1"
+        # prefix = f"{mp4_stem}_frame_{frame_index:06d}"
         mp4_stem = cfg.source_stem or os.path.splitext(os.path.basename(mp4_path))[0]
         prefix = f"{mp4_stem}_frame_{frame_index:06d}"
 
         img_name = f"{prefix}.jpg"
-        img_path = os.path.join(frames_dir, img_name)
-        cv2.imwrite(img_path, annotated)
+        # img_path = os.path.join(frames_dir, img_name)
+        # cv2.imwrite(img_path, annotated)
+        # 원본 저장 (bbox 그리기 전)
+        origin_path = os.path.join(origin_dir, img_name)
+        cv2.imwrite(origin_path, frame)  # frame이 원본 프레임(보통 BGR)
+
+        # bbox 그린 결과 저장
+        detect_path = os.path.join(detect_dir, img_name)
+        cv2.imwrite(detect_path, annotated)
 
         # JSON 생성
         dets: List[Dict[str, Any]] = []
@@ -437,7 +452,8 @@ def infer_mp4(mp4_path: str, cfg: InferConfig) -> Dict[str, Any]:
         "saved_frames": saved,
         "elapsed_sec": round(time.time() - t0, 3),
         "output_dir": os.path.abspath(cfg.out_dir),
-        "frames_dir": os.path.abspath(frames_dir),
+        "origin_dir": os.path.abspath(origin_dir),
+        "detect_dir": os.path.abspath(detect_dir),
         "json_dir": os.path.abspath(json_dir),
         "items_count": len(items),
     }
@@ -451,7 +467,7 @@ if __name__ == "__main__":
 
     # ✅ 기본값은 "상대경로" (루트 기준)
     default_weights = ROOT / "best.pt"
-    default_data_yaml = ROOT / "dataset.yaml"
+    default_data_yaml = ROOT / "insulator_hs_ns.yaml"
     default_out_dir = ROOT / "outputs_infer"
 
     # ✅ 환경변수로 덮어쓰기 가능 (서버/AWS에서 경로 바뀌어도 여길 안 고침)
