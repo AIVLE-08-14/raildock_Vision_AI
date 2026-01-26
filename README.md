@@ -13,18 +13,6 @@ YOLOv8 계열을 기반으로 하며,
 - pip install uv
 - uv sync
 - uv run main.py
-- 
-curl http://127.0.0.1:8000/infer `
-  -Method POST `
-  -Headers @{ "Content-Type" = "application/json" } `
-  -Body '{
-    "rail_mp4": "",
-    "insulator_mp4": "",
-    "nest_mp4": ""
-  }' `
-  -OutFile result.zip
-
-
 
 
 
