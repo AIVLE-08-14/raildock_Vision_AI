@@ -8,7 +8,7 @@ import os
 from app.service.FinetuneService import FinetuneService
 from .schemas.InferenceSchema import InferRequest
 from .service.InferenceService import inference_service
-
+import urllib.request
 router = APIRouter()
 
 
@@ -16,6 +16,13 @@ router = APIRouter()
 def health():
     return {"ok": True}
 
+
+
+###################################################################
+#
+# inference
+#
+###################################################################
 
 @router.post("/infer")
 async def inference(request: InferRequest):
@@ -51,24 +58,158 @@ async def inference(request: InferRequest):
             detail=f"Internal server error: {str(e)}"
         )
 
-class FinetuneRequest(BaseModel):
-    tasks: str = "rail,insulator,nest"
+
+
+###################################################################
+#
+# finetunning
+#
+###################################################################
+
+
+class FeedbackUrlRequest(BaseModel):
+    zip_url: str
+    overwrite: bool = False
+
+@router.get("/finetune/active")
+def finetune_active():
+    job_id = FinetuneService.get_active_job_id()
+    return {"active_job_id": job_id}
+
+@router.post("/feedback_url")
+def upload_feedback_by_url(req: FeedbackUrlRequest):
+    active_job = FinetuneService.get_active_job_id()
+    if active_job is not None:
+        raise HTTPException(409, f"Finetune is in progress (job_id={active_job}). Upload is blocked.")
+
+    if not (req.zip_url.startswith("http://") or req.zip_url.startswith("https://")):
+        raise HTTPException(400, "zip_url must start with http:// or https://")
+
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        zip_path = td / "feedback.zip"
+
+        try:
+            urllib.request.urlretrieve(req.zip_url, zip_path)
+        except Exception as e:
+            raise HTTPException(400, f"failed to download zip_url: {e}")
+
+        summary = _merge_zip_to_data(zip_path, overwrite=req.overwrite)
+
+        cfg = FinetuneService.get_config()
+        job_id, _ = FinetuneService.start_job(**cfg)
+
+        return {
+            "ok": True,
+            "summary": summary,
+            "overwrite": req.overwrite,
+            "finetune_job_id": job_id,
+            "finetune_config": cfg,
+            "source": "url"
+        }
+
+
+def _merge_zip_to_data(zip_path: Path, overwrite: bool) -> dict:
+    project_data = Path("data").resolve()
+    tasks = ["rail", "insulator", "nest"]
+
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        extracted_dir = td / "extracted"
+        extracted_dir.mkdir(parents=True, exist_ok=True)
+
+        # zip 해제
+        try:
+            with zipfile.ZipFile(zip_path, "r") as z:
+                z.extractall(extracted_dir)
+        except zipfile.BadZipFile:
+            raise HTTPException(400, "Invalid zip file")
+
+        # zip 내부 data/ 찾기
+        data_root = None
+        for p in extracted_dir.rglob("data"):
+            if p.is_dir():
+                data_root = p
+                break
+        if data_root is None:
+            raise HTTPException(400, "ZIP must contain a 'data/' directory")
+
+        summary = {}
+        for t in tasks:
+            origin_dir = data_root / t / "origin"
+            json_dir = data_root / t / "json"
+            if not origin_dir.exists() or not json_dir.exists():
+                raise HTTPException(400, f"Missing required folders: data/{t}/origin and data/{t}/json")
+
+            jpgs = sorted(origin_dir.glob("*.jpg"))
+            jsns = sorted(json_dir.glob("*.json"))
+
+            jpg_bases = {p.stem for p in jpgs}
+            json_bases = {p.stem for p in jsns}
+
+            only_jpg = sorted(jpg_bases - json_bases)
+            only_json = sorted(json_bases - jpg_bases)
+            if only_jpg or only_json:
+                raise HTTPException(
+                    400,
+                    f"[{t}] origin/json basename mismatch. "
+                    f"only_jpg={only_jpg[:3]} only_json={only_json[:3]} (showing up to 3)"
+                )
+
+            dst_origin = project_data / t / "origin"
+            dst_json = project_data / t / "json"
+            dst_origin.mkdir(parents=True, exist_ok=True)
+            dst_json.mkdir(parents=True, exist_ok=True)
+
+            copied = 0
+            skipped = 0
+
+            for base in sorted(jpg_bases):
+                src_jpg = origin_dir / f"{base}.jpg"
+                src_json = json_dir / f"{base}.json"
+                dst_jpg = dst_origin / src_jpg.name
+                dst_jsn = dst_json / src_json.name
+
+                if (dst_jpg.exists() or dst_jsn.exists()) and not overwrite:
+                    skipped += 1
+                    continue
+
+                shutil.copy2(src_jpg, dst_jpg)
+                shutil.copy2(src_json, dst_jsn)
+                copied += 1
+
+            summary[t] = {"pairs": len(jpg_bases), "copied": copied, "skipped": skipped}
+
+        return summary
+
+
+
+class FinetuneConfigRequest(BaseModel):
     epochs: int = 2
     batch: int = 2
     imgsz: int = 640
-    device: str = "0"
-    hf_repo_rail: str
-    hf_repo_insulator: str
-    hf_repo_nest: str
-    hf_base_rail: str = "weights/best.pt"
-    hf_base_insulator: str = "weights/best.pt"
-    hf_base_nest: str = "weights/best.pt"
 
+@router.get("/finetune/config")
+def finetune_get_config():
+    cfg = FinetuneService.get_config()
+    return {"ok": True, "config": cfg}
+
+@router.post("/finetune/config")
+def finetune_set_config(req: FinetuneConfigRequest):
+    try:
+        cfg = FinetuneService.set_config(epochs=req.epochs, batch=req.batch, imgsz=req.imgsz)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "config": cfg}
 
 @router.post("/finetune")
-def finetune_start(req: FinetuneRequest):
-    job_id, _ = FinetuneService.start_job(**req.model_dump())
-    return {"job_id": job_id, "state": "running"}
+def finetune_start():
+    active_job = FinetuneService.get_active_job_id()
+    if active_job is not None:
+        raise HTTPException(409, f"Finetune is in progress (job_id={active_job}).")
+    cfg = FinetuneService.get_config()
+    job_id, _ = FinetuneService.start_job(**cfg)
+    return {"job_id": job_id, "state": "running", "config": cfg}
 
 
 @router.get("/finetune/{job_id}")
@@ -104,6 +245,14 @@ async def upload_feedback(zip_file: UploadFile = File(...), overwrite: bool = Fa
 
     서버는 이를 프로젝트 루트의 ./data/<task>/(origin|json)/ 로 병합(copy)함.
     """
+
+    active_job = FinetuneService.get_active_job_id()
+    if active_job is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Finetune is in progress (job_id={active_job}). Upload is blocked."
+        )
+
     if not zip_file.filename.lower().endswith(".zip"):
         raise HTTPException(400, "zip_file must be a .zip")
 
@@ -186,4 +335,8 @@ async def upload_feedback(zip_file: UploadFile = File(...), overwrite: bool = Fa
 
             summary[t] = {"pairs": len(jpg_bases), "copied": copied, "skipped": skipped}
 
-        return {"ok": True, "summary": summary, "overwrite": overwrite}
+        cfg = FinetuneService.get_config()
+        job_id, _ = FinetuneService.start_job(**cfg)
+
+        return {"ok": True, "summary": summary, "overwrite": overwrite, "finetune_job_id": job_id,
+                "finetune_config": cfg}

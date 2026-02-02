@@ -5,9 +5,17 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
+import shutil  # 추가
 
 def _write_json(p: Path, obj: dict):
     p.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def _safe_rmtree(path: Path):
+    try:
+        if path.exists() and path.is_dir():
+            shutil.rmtree(path)
+    except Exception as e:
+        print(f"[WARN] cleanup failed: {path} ({e})")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -22,13 +30,15 @@ def main():
 
     _write_json(status_path, {"state": "running", "started_at": datetime.now().isoformat()})
 
+    success = False  # ✅ 추가
+
     try:
-        # finetune.py가 argparse로 sys.argv를 읽으므로 그대로 넘겨줌
         from tools.finetune import finetune as finetune_module
 
-        # remaining이 ["--tasks","..."] 형태로 들어오게 만들 예정
         sys.argv = ["tools.finetune.finetune"] + remaining
-        finetune_module.main()  # ✅ 여기서 학습 끝나고 HF 업로드까지 수행됨
+        finetune_module.main()
+
+        success = True  # ✅ 성공 표시
 
         _write_json(status_path, {"state": "success", "finished_at": datetime.now().isoformat()})
         if error_path.exists():
@@ -39,6 +49,14 @@ def main():
         error_path.write_text(tb, encoding="utf-8", errors="ignore")
         _write_json(status_path, {"state": "failed", "finished_at": datetime.now().isoformat()})
         raise
+
+    finally:
+        if success:
+            project_root = Path.cwd()
+
+            # ✅ success일 때만 삭제
+            _safe_rmtree(project_root / "data")
+            _safe_rmtree(project_root / "datasets")
 
 if __name__ == "__main__":
     main()

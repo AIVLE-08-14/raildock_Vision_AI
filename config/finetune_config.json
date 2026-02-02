@@ -1,0 +1,5 @@
+{
+  "epochs": 2,
+  "batch": 2,
+  "imgsz": 640
+}
