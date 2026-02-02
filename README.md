@@ -11,159 +11,106 @@ YOLOv8 계열을 기반으로 하며,
 ---
   
 ## 0. 사용법
-### 0.1 추론서버 사용법
 
-- uv sync
-- uv run main.py
-#### 요청 예시 (curl)
-```bash
-curl -X 'POST' \
-  'http://localhost:8000/infer' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "rail_mp4": "<File URL>",
-  "insulator_mp4": "<File URL>",
-  "nest_mp4": "<File URL>",
-  "conf": 0.25,
-  "iou": 0.7,
-  "stride": 5
-}'
-```
+### 0.1 추론 서버 사용법 (File URL 기반)
 
-### 0.2 파인튜닝 및 피드백(데이터 적재) 사용법
-
-#### 0.2.1 개요
-본 프로젝트는 **엔지니어 피드백 데이터(zip)** 를 서버로 업로드하면(`POST /feedback`) 프로젝트의 `data/` 디렉토리에 **누적 저장**됩니다.
-
-누적된 `data/`를 기반으로 **파인튜닝을 트리거**할 수 있습니다. (`POST /finetune`)
-
-파인튜닝은 **요청-응답과 분리된 백그라운드 프로세스**로 실행되며, 완료 시 Hugging Face에 업로드됩니다.
-
----
-
-#### 0.2.2 사전 준비
-
+#### 서버 실행
 ```bash
 uv sync
-```
-
-- `.env` 설정 필요 (Notion 참고)
-  - 최소 설정: `HF_TOKEN=...`
-
-#### 서버 실행 (추론/파인튜닝 API 동일 서버)
-```bash
 uv run main.py
 # 또는
 uv run uvicorn app.app:app --host 0.0.0.0 --port 8000
 ```
 
----
-
-#### 0.2.3 피드백 데이터 업로드 (data/ 누적 적재)
-
-#### 업로드 ZIP 형식 (필수)
-업로드되는 zip 내부는 아래 구조를 **반드시 포함**해야 합니다.
-
-```
-data/
-  rail/
-    origin/   (*.jpg)
-    json/     (*.json)
-  insulator/
-    origin/   (*.jpg)
-    json/     (*.json)
-  nest/
-    origin/   (*.jpg)
-    json/     (*.json)
-```
-
-- `origin`의 `.jpg`와 `json`의 `.json`은 **파일명(stem)이 1:1 매칭**되어야 합니다.
-  - 예: `xxx_000001.jpg` ↔ `xxx_000001.json`
-
-#### 업로드 요청 예시 (Windows PowerShell)
-```powershell
-curl.exe -X POST "http://127.0.0.1:8000/feedback?overwrite=false" \
-  -F "zip_file=@data.zip"
-```
-
-- `overwrite=false` (기본): 동일 파일명이 이미 존재하면 **skipped 처리**
-- `overwrite=true`: 동일 파일명이 있으면 **덮어쓰기**
-
-#### 성공 응답 예시
-```json
-{
-  "ok": true,
-  "summary": {
-    "rail": {"pairs": 5, "copied": 5, "skipped": 0},
-    "insulator": {"pairs": 6, "copied": 6, "skipped": 0},
-    "nest": {"pairs": 2, "copied": 2, "skipped": 0}
-  },
-  "overwrite": false
-}
-```
-
----
-
-#### 0.2.4 파인튜닝 실행 (POST /finetune)
-
-- `/finetune` 호출 시 `data/` 디렉토리에 **누적된 데이터 전체**를 기반으로 학습이 수행됩니다.
-- 파인튜닝은 **백그라운드 실행**되므로 요청이 끊겨도 학습은 계속 진행됩니다.
-- 학습 완료 시 Hugging Face repo로 가중치를 업로드합니다.
+> MP4 파일은 **HTTP(S)로 접근 가능한 File URL** 형태여야 합니다.
+> (예: 로컬 테스트 시 `python -m http.server` 사용)
 
 #### 요청 예시 (Windows PowerShell)
 ```powershell
-$bodyObj = @{
-  tasks = "rail,insulator,nest"
-  epochs = 2
-  batch  = 2
-  imgsz  = 640
-  device = "0"
-  hf_repo_rail      = "stcheesecake-gh/rail-detector"
-  hf_repo_insulator = "stcheesecake-gh/insulator-detector"
-  hf_repo_nest      = "stcheesecake-gh/nest-detector"
-  hf_base_rail      = "weights/best.pt"
-  hf_base_insulator = "weights/best.pt"
-  hf_base_nest      = "weights/best.pt"
-}
-
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/finetune" \
-  -ContentType "application/json" \
-  -Body ($bodyObj | ConvertTo-Json -Depth 5)
-```
-
-#### 성공 응답 예시
-```json
+@'
 {
-  "job_id": "<JOB_ID>",
-  "state": "running"
+  "rail_mp4": "<FILE_URL>",
+  "insulator_mp4": "<FILE_URL>",
+  "nest_mp4": "<FILE_URL>",
+  "conf": 0.25,
+  "iou": 0.7,
+  "stride": 5
 }
+'@ | Set-Content -Encoding utf8 infer_body.json
+
+curl.exe -X POST "http://127.0.0.1:8000/infer" `
+  -H "Content-Type: application/json" `
+  --data-binary "@infer_body.json" `
+  -o result.zip
 ```
 
 ---
 
-#### 0.2.5 파인튜닝 상태 및 로그 확인
+### 0.2 파인튜닝 및 피드백 사용법
 
-#### 상태 확인
+#### 0.2.1 개요
+- 피드백 데이터(zip)를 업로드하면 `data/`에 적재 후 **자동으로 파인튜닝이 시작**됩니다.
+- 파인튜닝은 백그라운드로 실행되며, 학습 중에는 **추가 업로드가 차단(HTTP 409)** 됩니다.
+- 학습이 **success로 종료되면 `data/`, `datasets/`는 자동 삭제**됩니다.
+
+---
+
+#### 0.2.2 피드백 업로드 방식
+
+##### A. File URL 기반 업로드 (권장, 운영 환경)
+```powershell
+$body = '{"zip_url":"<ZIP_FILE_URL>","overwrite":false}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/feedback_url" `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+##### B. 파일 직접 업로드 (로컬 테스트용)
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/feedback?overwrite=false" `
+  -F "zip_file=@data.zip"
+```
+
+> ZIP 내부는 반드시 아래 구조를 포함해야 합니다.
+```
+data/
+  rail/origin/*.jpg
+  rail/json/*.json
+  insulator/origin/*.jpg
+  insulator/json/*.json
+  nest/origin/*.jpg
+  nest/json/*.json
+```
+
+---
+
+#### 0.2.3 파인튜닝 파라미터 설정
+
+> epochs / batch / imgsz 만 설정 가능하며, 설정값은 서버 재시작 후에도 유지됩니다.
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/finetune/config" `
+  -ContentType "application/json" `
+  -Body '{"epochs":2,"batch":2,"imgsz":640}'
+```
+
+---
+
+#### 0.2.4 파인튜닝 상태 확인
+
+##### 현재 진행 중인 Job 조회
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/finetune/active"
+```
+
+##### 특정 Job 상태 확인
 ```powershell
 Invoke-RestMethod "http://127.0.0.1:8000/finetune/<JOB_ID>"
 ```
 
-#### 로그 확인
+##### 로그 확인
 ```powershell
 Invoke-RestMethod "http://127.0.0.1:8000/finetune/<JOB_ID>/logs?tail=200"
-```
-
-#### 로컬 결과 저장 위치
-
-파인튜닝 실행 시 아래 경로에 job별 결과가 생성됩니다.
-
-```
-runs_finetune/<JOB_ID>/
-  train.log
-  status.json
-  meta.json
-  error.txt        # 실패 시
 ```
 
 ---
